@@ -558,7 +558,7 @@ export class DomainDetailsFormContainer extends PureComponent {
 export default connect(
 	( state ) => {
 		const contactDetails = getContactDetailsCache( state );
-		// this should be a selector in state/selectors
+		// this can one day be a selector in state/selectors if we need it elsewhere
 		const isStateRequiredInAddress = includes( CHECKOUT_US_ADDRESS_FORMAT_COUNTRIES, ( contactDetails || {} ).countryCode );
 		return {
 			contactDetails,
