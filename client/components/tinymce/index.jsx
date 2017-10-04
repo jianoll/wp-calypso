@@ -2,6 +2,7 @@
  * External dependencies
  */
 import { assign, forEach } from 'lodash';
+import { connect } from 'react-redux';
 const ReactDom = require( 'react-dom' ),
 	React = require( 'react' ),
 	PropTypes = require( 'prop-types' ),
@@ -83,7 +84,15 @@ const user = require( 'lib/user' )(),
 	i18n = require( './i18n' ),
 	viewport = require( 'lib/viewport' ),
 	config = require( 'config' );
+import markup from 'post-editor/media-modal/markup';
+import MediaActions from 'lib/media/actions';
+import MediaLibraryDropZone from 'my-sites/media-library/drop-zone';
+import MediaLibrarySelectedStore from 'lib/media/library-selected-store';
+import MediaUtils from 'lib/media/utils';
+import MediaValidationStore from 'lib/media/validation-store';
+import PostActions from 'lib/posts/actions';
 import { decodeEntities, wpautop, removep } from 'lib/formatting';
+import { getSelectedSite } from 'state/ui/selectors';
 
 /**
  * Internal Variables
@@ -158,12 +167,13 @@ const CONTENT_CSS = [
 	'https://fonts.googleapis.com/css?family=Noto+Serif:400,400i,700,700i&subset=cyrillic,cyrillic-ext,greek,greek-ext,latin-ext,vietnamese',
 ];
 
-module.exports = React.createClass( {
+const TinyMCE = React.createClass( {
 	displayName: 'TinyMCE',
 
 	propTypes: {
 		isNew: PropTypes.bool,
 		mode: PropTypes.string,
+		site: PropTypes.object,
 		tabIndex: PropTypes.number,
 		onActivate: PropTypes.func,
 		onBlur: PropTypes.func,
@@ -497,6 +507,28 @@ module.exports = React.createClass( {
 		this.setState( { content }, this.doAutosizeUpdate );
 	},
 
+	onFilesDrop: () => {
+		const { site } = this.props;
+		// Find selected images. Non-images will still be uploaded, but not
+		// inserted directly into the post contents.
+		const selectedItems = MediaLibrarySelectedStore.getAll( site.ID );
+		const isSingleImage = 1 === selectedItems.length && 'image' === MediaUtils.getMimePrefix( selectedItems[ 0 ] );
+
+		if ( isSingleImage && ! MediaValidationStore.hasErrors( site.ID ) ) {
+			// For single image upload, insert into post content, blocking save
+			// until the image has finished upload
+			if ( selectedItems[ 0 ].transient ) {
+				PostActions.blockSave( 'MEDIA_MODAL_TRANSIENT_INSERT' );
+			}
+
+			this.onInsertMedia( markup.get( site, selectedItems[ 0 ] ) );
+			MediaActions.setLibrarySelectedItems( site.ID, [] );
+		} else {
+			// In all other cases, show the media modal list view
+			this.openMediaModal();
+		}
+	},
+
 	localize: function() {
 		const userData = user.get();
 		let i18nStrings = i18n;
@@ -516,7 +548,7 @@ module.exports = React.createClass( {
 	},
 
 	render: function() {
-		const { mode } = this.props;
+		const { mode, site } = this.props;
 		const className = classnames( {
 			tinymce: true,
 			'is-visible': mode === 'html'
@@ -538,8 +570,15 @@ module.exports = React.createClass( {
 					<EditorHtmlToolbar
 						content={ this.refs.text }
 						onToolbarChangeContent={ this.onToolbarChangeContent }
+					/> &&
+
+					<MediaLibraryDropZone
+						onAddMedia={ this.onFilesDrop }
+						site={ site }
+						fullScreen={ false }
 					/>
 				}
+
 				<textarea
 					ref="text"
 					className={ className }
@@ -552,3 +591,11 @@ module.exports = React.createClass( {
 		);
 	}
 } );
+
+const mapStateToProps = state => ( {
+	site: getSelectedSite( state ),
+} );
+
+export default connect( mapStateToProps, null, null, { withRef: true } )( TinyMCE );
+// todo maybe write new tests to cover the fact that it's now connected, and any other changes in pr, or possible side-effects
+// todo the html toolbar is broken now? it's not showing up anymore

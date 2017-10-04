@@ -41,8 +41,9 @@ export const DropZone = React.createClass( {
 
 	getInitialState() {
 		return {
-			isDraggingOverDocument: false,
-			isDraggingOverElement: false,
+			isDraggingOverDocument: true,
+			isDraggingOverElement: true,
+			// todo tmp set to false to make the dropzone easier to work with while debugging. revert before merging to master
 			lastVisibleState: false,
 		};
 	},
@@ -90,8 +91,9 @@ export const DropZone = React.createClass( {
 		}
 
 		this.setState( {
-			isDraggingOverDocument: false,
-			isDraggingOverElement: false
+			isDraggingOverDocument: true,
+			isDraggingOverElement: true
+			// todo tmp set to false to make the dropzone easier to work with while debugging. revert before merging to master
 		} );
 
 		this.toggleDropZoneReduxState( false );
