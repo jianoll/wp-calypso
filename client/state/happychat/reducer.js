@@ -220,7 +220,7 @@ export const lostFocusAt = ( state = null, action ) => {
 	}
 	return state;
 };
-lastActivityTimestamp.hasCustomPersistence = true;
+lostFocusAt.hasCustomPersistence = true;
 
 export default combineReducers( {
 	chatStatus,
