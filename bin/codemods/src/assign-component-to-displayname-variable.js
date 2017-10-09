@@ -1,16 +1,3 @@
-// const createClassIdentifier = {
-//     type: 'CallExpression',
-//     callee: {
-//         type: 'MemberExpression',
-//         object: {
-//             name: 'React',
-//         },
-//         property: {
-//             name: 'createClass',
-//         }
-//     },
-// };
-
 const createClassIdentifier = {
     type: 'CallExpression',
     callee: {
@@ -24,25 +11,9 @@ const createClassIdentifier = {
     },
 };
 
-// CallExpression
-// callee {
-  // arguements ( type: [] )
-    // get first {
-      // type: MemberExpression {
-        // object: {
-          // type: Identifier
-          // name: React
-        // }
-        // property: {
-          // type: Identifier
-          // name: createClass
-        // }
-      // }
-    // }
-// }
-
 const classWrapperIdentifier = {
     type: 'CallExpression',
+    // need to be able to determine the exact argument position ??
     arguments: [ createClassIdentifier ],
 };
 
@@ -57,82 +28,98 @@ export default function transformer(file, api) {
     const j = api.jscodeshift;
     const root = j( file.source );
 
-    const ExportDefaultDeclaration = root
+    const exportDefaultDeclarations = root
         .find( j.ExportDefaultDeclaration );
 
-    // const ExportDefaultDeclaration = root
-    //     .find( j.ExportDefaultDeclaration );
+    const argIsCreateClassInstance = arg => {
+        const object = arg && arg.value && arg.value.callee && arg.value.callee.object && arg.value.callee.object.name;
+        const property = arg && arg.value && arg.value.callee && arg.value.callee.property && arg.value.callee.property.name;
 
-    const enhancedClass = root
-        .find( j.CallExpression, classWrapperIdentifier );
+        return object === 'React' && property === 'createClass';
+    }
 
-    const wrappedCreateClassDeclarations = ExportDefaultDeclaration
-        .find( j.CallExpression, createClassIdentifier );
+    const argIsExtendsComponentInstance = arg => {
+        const type = arg.get( 'type' ).value;
 
-    // wrappedCreateClassDeclarations
-    //     .forEach( node => {
-    //         // const displayNamePaths = node.find( j.Property, displayNamePropertyIdentifier );
-    //         console.log( 'node found', { node: Object.freeze( node ) } );
-    //     } )
-        // .replaceWith( node =>
-        //     j.variableDeclaration( 'const', [
-        //         j.identifier( 'displayNameValue' )
-        //     ] )
-        // );
-
-        // if ( wrappedCreateClassDeclarations.size() ) {
-        //     wrappedCreateClassDeclarations.forEach( node => {
-        //         console.log( node.get( 'declaration' ) );
-        //     } );
-        // }
-
-        // enhancedClass.forEach( node => {
-        //     const firstArgument = node.get( 'arguments', 0 )
-        //     console.log( 'enhancedClass', j( firstArgument ).find( j.CallExpression ).length );
-        //     // .get( 'arguments', 0 )
-        // } );
-
-        const displayNamePath = wrappedCreateClassDeclarations.find( j.Property, displayNamePropertyIdentifier ).at( 0 );
-        const displayNameValue = displayNamePath.get( 'value' ).value.value;
-
-        if ( enhancedClass.size() ) {
-            enhancedClass.replaceWith( node => {
-                const calleeName = node.get( 'callee', 'name' ).value;
-                const firstArgument = node.get( 'arguments', 0 )
-                // const displayName =
-
-                // console.log( node, calleeName );
-                console.log( {
-                    displayNamePath,
-                    displayNameValue,
-                } );
-
-                // const Component = firstArgument.value;
-
-
-                // return j.memberExpression( j.identifier( 'props' ), j.identifier( 'property' ) )
-                // return j.memberExpression( firstArgument.value )
-                // return j.callExpression( j.identifier( calleeName ), [ j.identifier( displayNameValue ) ] );
-                //     j.memberExpression( j.thisExpression(), j.identifier( 'props' ) ),
-                //     j.identifier( 'property' )
-                // )
-
-                // ======================
-
-                return j.variableDeclaration( 'const', [
-                    j.variableDeclarator(
-                      j.identifier( displayNameValue ),
-                      firstArgument.value
-                    )
-                ] );
-
-            } );
+        if ( type !== 'ClassExpression' ) {
+            return false;
         }
 
-        wrappedCreateClassDeclarations.insertAfter( 'blah' )
+        const superClass = arg.get( 'superClass' );
+        const object = arg.get( 'superClass', 'object' );
+        const property = arg.get( 'superClass', 'property' );
 
+        return (
+            superClass.value && superClass.value.name === 'Component' ||
+            object.value.name === 'React' &&
+            property.value.name === 'Component'
+        );
+    }
 
-    return wrappedCreateClassDeclarations.toSource( {
+    const replaceClassOrGetValue = arg =>
+        argIsCreateClassInstance( arg ) || argIsExtendsComponentInstance( arg )
+            ? j.identifier( 'displayNameValue' )
+            : arg.value;
+
+    const getMatchingArg = args =>
+        args.filter( x => argIsCreateClassInstance( x ) || argIsExtendsComponentInstance( x )  )[ 0 ];
+
+    const wrappedCreateClassDeclarations = exportDefaultDeclarations
+        .find( j.CallExpression, createClassIdentifier );
+
+    // const displayNamePath = wrappedCreateClassDeclarations.find( j.Property, displayNamePropertyIdentifier ).at( 0 );
+    // const displayNameValue = displayNamePath.get( 'value' ).value.value;
+
+    if ( exportDefaultDeclarations.size() ) {
+
+        exportDefaultDeclarations.forEach( node => {
+            const calleeName = node.get( 'declaration', 'callee', 'name' ).value
+
+            if ( ! calleeName ) {
+                console.log( 'return early, no immediate function call' );
+                return;
+            }
+
+            const exportDefaultInstance = j( node );
+            const classExpressions = exportDefaultInstance.find( j.ClassExpression );
+
+            const args = node.get( 'declaration', 'arguments' );
+            const matchingArg = getMatchingArg( args );
+
+            // console.log( node );
+            // console.log( 'classExpressions:', classExpressions.at( 0 ) );
+            // console.log( 'calleeName:', calleeName )
+            // console.log( 'argCount:', args )
+            console.log( 'match?:', !! matchingArg )
+
+            if ( matchingArg ) {
+                exportDefaultInstance.replaceWith(
+                    node => (
+                        [
+                            j.variableDeclaration( 'const', [
+                                j.variableDeclarator(
+                                  j.identifier( 'displayNameValue' ),
+                                  matchingArg.value
+                                )
+                            ] ),
+                            j.exportDefaultDeclaration(
+                                j.callExpression(
+                                    j.identifier( calleeName ),
+                                    args.map( replaceClassOrGetValue )
+                                )
+                            ),
+                        ]
+                    )
+                );
+                // return
+            }
+        } )
+
+    } else {
+        console.log( 'no exportDefaultDeclarations found' );
+    }
+
+    return exportDefaultDeclarations.toSource( {
         useTabs: true,
     } );
 }

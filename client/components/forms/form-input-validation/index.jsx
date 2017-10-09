@@ -8,8 +8,9 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import classNames from 'classnames';
 import Gridicon from 'gridicons';
+import { localize } from 'i18n-calypso';
 
-export default class extends React.Component {
+export default localize( 2, class extends React.Component {
 	static displayName = 'FormInputValidation';
 
 	static propTypes = {
@@ -39,4 +40,4 @@ export default class extends React.Component {
 			</div>
 		);
 	}
-}
+}, 'argy' );
