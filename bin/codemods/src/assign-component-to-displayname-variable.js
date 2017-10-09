@@ -56,9 +56,9 @@ export default function transformer(file, api) {
         );
     }
 
-    const replaceClassOrGetValue = arg =>
+    const replaceClassOrGetValue = displayName => arg =>
         argIsCreateClassInstance( arg ) || argIsExtendsComponentInstance( arg )
-            ? j.identifier( 'displayNameValue' )
+            ? j.identifier( displayName )
             : arg.value;
 
     const getMatchingArg = args =>
@@ -83,6 +83,36 @@ export default function transformer(file, api) {
             const exportDefaultInstance = j( node );
             const classExpressions = exportDefaultInstance.find( j.ClassExpression );
 
+            const classProperties = classExpressions.find( j.ClassProperty );
+
+            let displayNameValue;
+            // if ( classProperties.size() ) { // need this for filtering??
+            const displayNameProps = classProperties.filter(
+                x => {
+                    const propName = x.get( 'key', 'name' ).value
+                    const propValue = x.get( 'value', 'value' ).value
+
+                    console.log( propName, propName === 'displayName' && propValue );
+
+                    if ( propName === 'displayName' ) {
+                        displayNameValue = propValue;
+                    }
+
+                    return propName === 'displayName'
+                }
+            );
+
+            console.log( 'displayNameProps.length', displayNameProps.length );
+
+            if ( ! displayNameValue ) {
+                console.log( 'return early, no displayNameValue' );
+                return;
+            }
+
+            // const displayName = displayNameProps.at( 0 );
+
+            // console.log( displayName );
+
             const args = node.get( 'declaration', 'arguments' );
             const matchingArg = getMatchingArg( args );
 
@@ -98,14 +128,14 @@ export default function transformer(file, api) {
                         [
                             j.variableDeclaration( 'const', [
                                 j.variableDeclarator(
-                                  j.identifier( 'displayNameValue' ),
+                                  j.identifier( displayNameValue ),
                                   matchingArg.value
                                 )
                             ] ),
                             j.exportDefaultDeclaration(
                                 j.callExpression(
                                     j.identifier( calleeName ),
-                                    args.map( replaceClassOrGetValue )
+                                    args.map( replaceClassOrGetValue( displayNameValue ) )
                                 )
                             ),
                         ]
