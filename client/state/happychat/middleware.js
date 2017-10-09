@@ -38,7 +38,8 @@ import {
 	PURCHASE_REMOVE_COMPLETED,
 	SITE_SETTINGS_SAVE_SUCCESS,
 } from 'state/action-types';
-import { setHappychatChatStatus, setGeoLocation } from './actions';
+import { setHappychatChatStatus } from './actions';
+import { setGeoLocation } from 'state/happychat/user/actions';
 import {
 	receiveChatEvent,
 	receiveChatTranscript,
@@ -49,14 +50,10 @@ import {
 	setHappychatAvailable,
 	setReconnecting,
 } from 'state/happychat/connection/actions';
-import {
-	wasHappychatRecentlyActive,
-	isHappychatChatAssigned,
-	getGeoLocation,
-	getGroups,
-} from './selectors';
-import isHappychatConnectionUninitialized from 'state/happychat/selectors/is-happychat-connection-unitialized';
+import { wasHappychatRecentlyActive, isHappychatChatAssigned, getGroups } from './selectors';
+import getGeoLocation from 'state/happychat/selectors/get-geolocation';
 import isHappychatClientConnected from 'state/happychat/selectors/is-happychat-client-connected';
+import isHappychatConnectionUninitialized from 'state/happychat/selectors/is-happychat-connection-uninitialized';
 import { getCurrentUser, getCurrentUserLocale } from 'state/current-user/selectors';
 import { getHelpSelectedSite } from 'state/help/selectors';
 import debugFactory from 'debug';
