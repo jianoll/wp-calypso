@@ -27,6 +27,7 @@ import { HAPPYCHAT_CHAT_STATUS_DEFAULT } from './selectors';
 import { HAPPYCHAT_MAX_STORED_MESSAGES } from './constants';
 import { timelineSchema, geoLocationSchema } from './schema';
 import connection from './connection/reducer';
+import ui from './ui/reducer';
 
 /**
  * Returns a timeline event from the redux action
@@ -229,4 +230,5 @@ export default combineReducers( {
 	timeline,
 	geoLocation,
 	connection,
+	ui,
 } );
