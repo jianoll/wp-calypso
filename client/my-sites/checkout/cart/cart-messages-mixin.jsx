@@ -3,9 +3,9 @@
  *
  * @format
  */
-
 import React from 'react';
 import { isEmpty } from 'lodash';
+import { translate as i18nCalypsoTranslate } from 'i18n-calypso';
 
 /**
  * Internal dependencies
@@ -31,7 +31,8 @@ module.exports = {
 	},
 
 	getChargebackErrorMessage() {
-		return this.props.translate(
+		const translate = this.props.translate || i18nCalypsoTranslate;
+		return translate(
 			'{{strong}}Warning:{{/strong}} One or more transactions linked to this site were refunded due to a contested charge. ' +
 				'This may have happened because of a chargeback by the credit card holder or a PayPal investigation. Each contested ' +
 				'charge carries a fine. To resolve the issue and re-enable posting, please {{a}}pay for the chargeback fine{{/a}}.',
@@ -45,7 +46,8 @@ module.exports = {
 	},
 
 	getBlockedPurchaseErrorMessage() {
-		return this.props.translate(
+		const translate = this.props.translate || i18nCalypsoTranslate;
+		return translate(
 			'Purchases are currently disabled. Please {{a}}contact us{{/a}} to re-enable purchases.',
 			{
 				components: {
