@@ -1,3 +1,8 @@
+// half baked at the moment - to test it's current state try running:
+// npm run codemod assign-component-to-displayname-variable client/components/forms/form-input-validation/index.jsx
+
+const { get } = require( 'lodash' );
+
 const createClassIdentifier = {
     type: 'CallExpression',
     callee: {
@@ -13,7 +18,7 @@ const createClassIdentifier = {
 
 const classWrapperIdentifier = {
     type: 'CallExpression',
-    // need to be able to determine the exact argument position ??
+    // Checking that there is a createClass
     arguments: [ createClassIdentifier ],
 };
 
@@ -31,12 +36,10 @@ export default function transformer(file, api) {
     const exportDefaultDeclarations = root
         .find( j.ExportDefaultDeclaration );
 
-    const argIsCreateClassInstance = arg => {
-        const object = arg && arg.value && arg.value.callee && arg.value.callee.object && arg.value.callee.object.name;
-        const property = arg && arg.value && arg.value.callee && arg.value.callee.property && arg.value.callee.property.name;
-
-        return object === 'React' && property === 'createClass';
-    }
+    const argIsCreateClassInstance = arg => (
+        get( arg, 'value.callee.object' ) === 'React' &&
+        get( arg, 'value.callee.property' ) === 'createClass'
+    );
 
     const argIsExtendsComponentInstance = arg => {
         const type = arg.get( 'type' ).value;
@@ -67,9 +70,6 @@ export default function transformer(file, api) {
     const wrappedCreateClassDeclarations = exportDefaultDeclarations
         .find( j.CallExpression, createClassIdentifier );
 
-    // const displayNamePath = wrappedCreateClassDeclarations.find( j.Property, displayNamePropertyIdentifier ).at( 0 );
-    // const displayNameValue = displayNamePath.get( 'value' ).value.value;
-
     if ( exportDefaultDeclarations.size() ) {
 
         exportDefaultDeclarations.forEach( node => {
@@ -83,55 +83,26 @@ export default function transformer(file, api) {
             const exportDefaultInstance = j( node );
             const classExpressions = exportDefaultInstance.find( j.ClassExpression );
 
-            const classProperties = classExpressions.find( j.ClassProperty );
-
-            let displayNameValue;
-            // if ( classProperties.size() ) { // need this for filtering??
-            const displayNameProps = classProperties.filter(
-                x => {
-                    const propName = x.get( 'key', 'name' ).value
-                    const propValue = x.get( 'value', 'value' ).value
-
-                    console.log( propName, propName === 'displayName' && propValue );
-
-                    if ( propName === 'displayName' ) {
-                        displayNameValue = propValue;
-                    }
-
-                    return propName === 'displayName'
-                }
-            );
-
-            console.log( 'displayNameProps.length', displayNameProps.length );
+            const displayNameProperty = classExpressions.find( j.ClassProperty, displayNamePropertyIdentifier ).at( 0 );
+            const displayNameValue = displayNameProperty.get( 'value', 'value' ).value;
 
             if ( ! displayNameValue ) {
                 console.log( 'return early, no displayNameValue' );
                 return;
             }
 
-            // const displayName = displayNameProps.at( 0 );
-
-            // console.log( displayName );
-
             const args = node.get( 'declaration', 'arguments' );
             const matchingArg = getMatchingArg( args );
-
-            // console.log( node );
-            // console.log( 'classExpressions:', classExpressions.at( 0 ) );
-            // console.log( 'calleeName:', calleeName )
-            // console.log( 'argCount:', args )
-            console.log( 'match?:', !! matchingArg )
 
             if ( matchingArg ) {
                 exportDefaultInstance.replaceWith(
                     node => (
                         [
-                            j.variableDeclaration( 'const', [
-                                j.variableDeclarator(
-                                  j.identifier( displayNameValue ),
-                                  matchingArg.value
-                                )
-                            ] ),
+                            j.classDeclaration(
+                                j.identifier( displayNameValue ),
+                                matchingArg.value.body,
+                                matchingArg.value.superClass
+                            ),
                             j.exportDefaultDeclaration(
                                 j.callExpression(
                                     j.identifier( calleeName ),
@@ -141,12 +112,8 @@ export default function transformer(file, api) {
                         ]
                     )
                 );
-                // return
             }
         } )
-
-    } else {
-        console.log( 'no exportDefaultDeclarations found' );
     }
 
     return exportDefaultDeclarations.toSource( {
